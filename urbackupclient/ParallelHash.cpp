@@ -23,7 +23,7 @@ ParallelHash::ParallelHash(SQueueRef* phash_queue, int sha_version, size_t extra
 	last_file_buffer_commit_time(0), sha_version(sha_version), eof(false),
 	extra_n_threads(extra_n_threads), extra_thread(false),
 	extra_mutex(Server->createMutex()), extra_cond(Server->createCondition()),
-	modify_file_buffer_mutex(Server->createMutex())
+	modify_file_buffer_mutex(Server->createMutex()), do_quit_extra(false)
 {
 	stdout_buf.resize(4090);
 	ticket = Server->getThreadPool()->execute(this, extra_n_threads>0 ? "phash master": "phash");
@@ -105,6 +105,11 @@ void ParallelHash::operator()()
 		return;
 	}
 
+	if (extra_n_threads > 0)
+	{
+		++extra_n_threads;
+	}
+
 	extra_thread = true;
 	for (size_t i = 0; i < extra_n_threads; ++i)
 	{
@@ -180,7 +185,7 @@ void ParallelHash::operator()()
 
 	{
 		IScopedLock lock(extra_mutex.get());
-		do_quit = true;
+		do_quit_extra = true;
 		extra_cond->notify_all();
 	}
 
@@ -467,17 +472,31 @@ bool ParallelHash::finishDir(ParallelHash::SCurrDir* dir, ClientDAO& clientdao, 
 
 		if (added_hash)
 		{
-			addModifyFileBuffer(clientdao, path_lower, dir->tgroup, files, target_generation);
+			addModifyFileBuffer(clientdao, path_lower, dir->tgroup, files, target_generation, false);
+		}
+	}
+	else
+	{
+		bool has_hash = false;
+		std::sort(dir->files.begin(), dir->files.end());
+		for (size_t i = 0; i < dir->files.size(); ++i)
+		{
+			if (!dir->files[i].hash.empty())
+			{
+				has_hash = true;
+				break;
+			}
 		}
 
-		IScopedLock lock(mutex.get());
-		curr_dirs.erase(id);
-		return true;
+		if (has_hash)
+		{
+			addModifyFileBuffer(clientdao, path_lower, dir->tgroup, files, target_generation, true);
+		}
 	}
 
 	IScopedLock lock(mutex.get());
 	curr_dirs.erase(id);
-	return false;
+	return true;
 }
 
 bool ParallelHash::addToStdoutBuf(const char * ptr, size_t size)
@@ -523,13 +542,16 @@ size_t ParallelHash::calcBufferSize(const std::string &path, const std::vector<S
 void ParallelHash::runExtraThread()
 {
 	IScopedLock lock(extra_mutex.get());
-	while (!do_quit)
+	while (!do_quit_extra)
 	{
 		while (extra_queue.empty() &&
-			do_quit)
+			!do_quit_extra)
 		{
 			extra_cond->wait(&lock);
 		}
+
+		if (do_quit_extra)
+			break;
 
 		std::pair<int64, std::string> msg = extra_queue.front();
 		extra_queue.pop_front();
@@ -545,13 +567,13 @@ void ParallelHash::runExtraThread()
 }
 
 void ParallelHash::addModifyFileBuffer(ClientDAO& clientdao, const std::string & path, int tgroup,
-	const std::vector<SFileAndHash>& files, int64 target_generation)
+	const std::vector<SFileAndHash>& files, int64 target_generation, bool insert)
 {
 	IScopedLock lock(modify_file_buffer_mutex.get());
 
 	modify_file_buffer_size += calcBufferSize(path, files);
 
-	modify_file_buffer.push_back(SBufferItem(path, tgroup, files, target_generation));
+	modify_file_buffer.push_back(SBufferItem(path, tgroup, files, target_generation, insert));
 
 	if (last_file_buffer_commit_time == 0)
 	{
@@ -570,8 +592,16 @@ void ParallelHash::commitModifyFileBuffer(ClientDAO& clientdao)
 	DBScopedWriteTransaction trans(clientdao.getDatabase());
 	for (size_t i = 0; i<modify_file_buffer.size(); ++i)
 	{
-		clientdao.modifyFiles(modify_file_buffer[i].path, modify_file_buffer[i].tgroup,
-			modify_file_buffer[i].files, modify_file_buffer[i].target_generation);
+		if (modify_file_buffer[i].insert)
+		{
+			clientdao.addFiles(modify_file_buffer[i].path, modify_file_buffer[i].tgroup,
+				modify_file_buffer[i].files, modify_file_buffer[i].target_generation);
+		}
+		else
+		{
+			clientdao.modifyFiles(modify_file_buffer[i].path, modify_file_buffer[i].tgroup,
+				modify_file_buffer[i].files, modify_file_buffer[i].target_generation);
+		}
 	}
 
 	modify_file_buffer.clear();

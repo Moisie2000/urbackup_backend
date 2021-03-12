@@ -2547,7 +2547,7 @@ bool IndexThread::initialCheck(std::vector<SRecurParams>& params_stack, size_t s
 			else if (calculate_filehashes_on_client
 				&& phash_queue != NULL
 				&& !files[i].isspecialf
-				&& files[i].size>=link_file_min_size)
+				&& files[i].size>=link_file_min_size )
 			{
 				if (!finish_phash_path)
 				{
@@ -6396,6 +6396,8 @@ bool  IndexThread::addFileToCbt(const std::string& fpath, const DWORD& blocksize
 			std::vector<IFsFile::SFileExtent> exts = hive_file->getFileExtents(offset, blocksize, more_exts);
 			for (size_t j = 0; j < exts.size(); ++j)
 			{
+				offset = (std::max)(offset, exts[j].offset + exts[j].size);
+
 				if (exts[j].volume_offset < 0)
 					continue;
 
@@ -9057,11 +9059,14 @@ void IndexThread::initParallelHashing(const std::string & async_ticket)
 	}
 
 	std::auto_ptr<ISettingsReader> curr_settings(Server->createFileSettingsReader(settings_fn));
-	size_t client_hash_threads = 0;
+	size_t client_hash_threads = 1;
 	if (curr_settings.get() != NULL)
 	{
-		client_hash_threads = curr_settings->getValue("client_hash_threads", 0);
+		client_hash_threads = curr_settings->getValue("client_hash_threads", 1);
 	}
+
+	if (client_hash_threads > 0)
+		--client_hash_threads;
 
 	std::string fn = "phash_" + bytesToHex(async_ticket);
 	phash_queue = new SQueueRef(Server->openTemporaryFile(), this, fn);
