@@ -18,8 +18,6 @@ ServerDownloadThreadGroup::ServerDownloadThreadGroup(FileClient& fc, FileClientC
 		{
 			curr_fc = &fc;
 			curr_fc_chunked = fc_chunked;
-			dl_thread.fc = NULL;
-			dl_thread.fc_chunked = NULL;
 		}
 		else
 		{

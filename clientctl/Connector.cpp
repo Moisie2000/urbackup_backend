@@ -255,8 +255,7 @@ std::vector<SBackupDir> Connector::getSharedPaths(bool use_change_pw)
 				dir["id"].asInt(),
 				dir["group"].asInt(),
 				virtual_client,
-				dir["flags"].asString(),
-				dir["server_default"].asInt()
+				dir["flags"].asString()
 			};
 
 			ret.push_back(rdir);
@@ -271,12 +270,9 @@ std::vector<SBackupDir> Connector::getSharedPaths(bool use_change_pw)
 
 bool Connector::saveSharedPaths(const std::vector<SBackupDir> &res)
 {
-	std::string args="all_virtual_clients=1&enable_client_paths_use=1";
+	std::string args="all_virtual_clients=1";
 	for (size_t i = 0; i<res.size(); ++i)
 	{
-		if (res[i].server_default)
-			continue;
-
 		args += "&";
 		std::string path = EscapeParamString(res[i].path);
 		std::string name = EscapeParamString(res[i].name);

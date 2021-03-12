@@ -164,7 +164,7 @@ void ClientConnector::CMD_GET_CHALLENGE(const std::string &identity, const std::
 #ifndef NO_ZSTD_COMPRESSION
 			ret_params += "&compress=zstd";
 #else
-			ret_params += "&compress=zlib";
+			ret_params += "&compress=zstd";
 #endif
 		}
 
@@ -902,7 +902,7 @@ void ClientConnector::CMD_SAVE_BACKUPDIRS(const std::string &cmd, str_map &param
 		return;
 	}
 
-	if(saveBackupDirs(params, false, 0))
+	if(saveBackupDirs(params))
 	{
 		tcpstack.Send(pipe, "OK");
 	}
@@ -1535,9 +1535,10 @@ void ClientConnector::CMD_FULL_IMAGE(const std::string &cmd, bool ident_ok)
 			}
 		}
 #ifndef _WIN32
-		else
+		else if (image_inf.image_letter == "C"
+			|| image_inf.image_letter == "C:")
 		{
-			image_inf.image_letter = mapLinuxDev(image_inf.image_letter);
+			image_inf.image_letter = getRootVol();
 		}
 #endif
 
@@ -1642,7 +1643,11 @@ void ClientConnector::CMD_INCR_IMAGE(const std::string &cmd, bool ident_ok)
 			image_inf.clientsubname = params["clientsubname"];
 
 #ifndef _WIN32
-			image_inf.image_letter = mapLinuxDev(image_inf.image_letter);
+			if (image_inf.image_letter == "C"
+				|| image_inf.image_letter == "C:")
+			{
+				image_inf.image_letter = getRootVol();
+			}
 #endif
 
 			str_map::iterator f_cbitmapsize = params.find("cbitmapsize");
@@ -1776,7 +1781,7 @@ void ClientConnector::CMD_MBR(const std::string &cmd)
 	}
 	else if(params.find("disk_path")!=params.end())
 	{
-		dl= mapLinuxDev(params["disk_path"]);
+		dl=params["disk_path"];
 	}
 #endif
 

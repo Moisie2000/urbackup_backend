@@ -32,7 +32,6 @@ struct SBackupDir
 	int group;
 	std::string virtual_client;
 	std::string flags;
-	int server_default;
 };
 
 struct SStatus

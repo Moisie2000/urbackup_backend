@@ -60,7 +60,6 @@ const unsigned int flag_with_orig_path = 16;
 const unsigned int flag_with_sequence = 32;
 const unsigned int flag_with_proper_symlinks = 64;
 
-
 const uint64 change_indicator_symlink_bit = 0x4000000000000000ULL;
 const uint64 change_indicator_special_bit = 0x2000000000000000ULL;
 const uint64 change_indicator_all_bits = change_indicator_symlink_bit | change_indicator_special_bit;

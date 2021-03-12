@@ -2651,10 +2651,7 @@ IPipe *ClientMain::getClientCommandConnection(ServerSettings* server_settings, i
 	else
 	{
 		IPipe *ret=Server->ConnectStream(getClientaddr().toString(), serviceport, timeoutms);
-		if (ret == NULL)
-			return NULL;
-
-		if(server_settings!=NULL)
+		if(server_settings!=NULL && ret!=NULL)
 		{
 			int local_speed=server_settings->getLocalSpeed();
 			if(local_speed!=0
@@ -2862,7 +2859,7 @@ bool ClientMain::getClientChunkedFilesrvConnection(std::auto_ptr<FileClientChunk
 		IPipe* pipe;
 		if (protocol_versions.filesrvtunnel > 0)
 		{
-			pipe = new_fileclient_connection();
+			IPipe* pipe = new_fileclient_connection();
 			if (pipe == NULL)
 				return false;
 		}
@@ -3345,13 +3342,6 @@ bool ClientMain::authenticatePubKeyInt(IECDHKeyExchange* ecdh_key_exchange)
 
 		std::string l_session_compressed = challenge_params["compress"];
 		int l_session_compression_level = server_settings->getSettings()->internet_compression_level;
-
-#ifdef NO_ZSTD_COMPRESSION
-		if (l_session_compressed == "zstd")
-		{
-			l_session_compressed = "zlib";
-		}
-#endif
 
 		bool ret = sendClientMessageRetry("SIGNATURE#pubkey="+base64_encode_dash(pubkey)+
 			"&pubkey_ecdsa409k1="+base64_encode_dash(pubkey_ecdsa)+

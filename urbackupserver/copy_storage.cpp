@@ -32,6 +32,10 @@
 #include "server_log.h"
 #include "server_status.h"
 
+#if defined(_WIN32) || defined(__APPLE__) || defined(__FreeBSD__)
+#define stat64 stat
+#endif
+
 #ifndef _WIN32
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -39,10 +43,6 @@
 #include <errno.h>
 #else
 #include <Windows.h>
-#endif
-
-#if defined(_WIN32) || defined(__APPLE__) || defined(__FreeBSD__)
-#define stat64 stat
 #endif
 
 namespace
